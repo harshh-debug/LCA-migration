@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --background: #111412;
+  --panel: #1b211d;
+  --text: #f2f5f2;
+  --muted: #aeb9b1;
+  --accent: #9be3b0;
+  --danger: #ffb4ac;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: radial-gradient(circle at top left, #203027, var(--background) 42%);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+main {
+  width: min(780px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 18vh 0 80px;
+}
+
+h1 {
+  max-width: 720px;
+  margin: 12px 0 20px;
+  font-size: clamp(2.8rem, 8vw, 6.2rem);
+  line-height: 0.94;
+  letter-spacing: -0.06em;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lede {
+  max-width: 660px;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.status {
+  display: grid;
+  gap: 6px;
+  margin-top: 48px;
+  padding: 22px;
+  border: 1px solid #36443b;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+}
+
+.statusAvailable strong {
+  color: var(--accent);
+}
+
+.statusUnavailable strong {
+  color: var(--danger);
+}
+
+.status span,
+.status small {
+  color: var(--muted);
+}
+
+button {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #102015;
+  font: inherit;
+  font-weight: 700;
+}

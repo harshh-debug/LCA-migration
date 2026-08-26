@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lca.Api/Lca.Api.csproj" />
+    <Project Path="src/Lca.Application/Lca.Application.csproj" />
+    <Project Path="src/Lca.Domain/Lca.Domain.csproj" />
+    <Project Path="src/Lca.Infrastructure/Lca.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lca.Api.IntegrationTests/Lca.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Lca.ArchitectureTests/Lca.ArchitectureTests.csproj" />
+    <Project Path="tests/Lca.Domain.UnitTests/Lca.Domain.UnitTests.csproj" />
+  </Folder>
+</Solution>
+
