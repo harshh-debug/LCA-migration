@@ -1,4 +1,4 @@
-namespace Lca.Application.Security;
+namespace Lca.Core.Security;
 
 public static class TrustedClaimTypes
 {
@@ -6,4 +6,3 @@ public static class TrustedClaimTypes
 
     public const string Permission = "permission";
 }
-

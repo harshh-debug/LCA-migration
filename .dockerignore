@@ -1,0 +1,14 @@
+.git
+.vs
+**/bin
+**/obj
+frontend/node_modules
+frontend/.next
+frontend/out
+*.bak
+*.mdf
+*.ldf
+.env
+.env.*
+!/.env.example
+!frontend/.env.example

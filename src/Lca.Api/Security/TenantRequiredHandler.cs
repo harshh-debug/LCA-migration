@@ -1,4 +1,5 @@
-using Lca.Application.Security;
+using Lca.Core.Security;
+
 using Microsoft.AspNetCore.Authorization;
 
 namespace Lca.Api.Security;
@@ -18,4 +19,3 @@ public sealed class TenantRequiredHandler(ITenantContext tenantContext)
         return Task.CompletedTask;
     }
 }
-

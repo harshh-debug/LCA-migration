@@ -490,4 +490,10 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-docs
+# Keep files directly under docs/ and the client-facing documentation.
+# Ignore all other docs subdirectories (database/, Legacy_docs/, for-me/, etc.).
+docs/*
+!docs/*
+docs/*/
+!docs/client/
+!docs/client/**

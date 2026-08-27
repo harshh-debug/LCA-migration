@@ -1,6 +1,7 @@
 using System.Security.Claims;
-using Lca.Application.Security;
-using Lca.Domain.Tenancy;
+
+using Lca.Core.Security;
+using Lca.Core.Tenancy;
 
 namespace Lca.Api.Security;
 
@@ -24,4 +25,3 @@ public sealed class HttpTenantContext(IHttpContextAccessor httpContextAccessor) 
         }
     }
 }
-

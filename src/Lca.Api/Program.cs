@@ -1,9 +1,11 @@
 using System.Reflection;
+
 using Lca.Api.Configuration;
 using Lca.Api.Contracts;
 using Lca.Api.Infrastructure;
 using Lca.Api.Security;
-using Lca.Application.Security;
+using Lca.Core.Security;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -134,4 +136,3 @@ if (app.Environment.IsEnvironment("Testing"))
 app.Run();
 
 public partial class Program;
-

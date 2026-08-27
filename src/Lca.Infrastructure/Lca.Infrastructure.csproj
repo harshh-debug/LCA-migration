@@ -1,7 +1,2 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="../Lca.Application/Lca.Application.csproj" />
-    <ProjectReference Include="../Lca.Domain/Lca.Domain.csproj" />
-  </ItemGroup>
 </Project>
-

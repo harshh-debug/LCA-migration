@@ -33,4 +33,3 @@ public sealed partial class CorrelationIdMiddleware(RequestDelegate next, ILogge
     [GeneratedRegex("^[A-Za-z0-9._-]+$", RegexOptions.CultureInvariant)]
     private static partial Regex SafeCorrelationId();
 }
-

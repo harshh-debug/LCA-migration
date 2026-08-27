@@ -1,6 +1,6 @@
-using Lca.Domain.Tenancy;
+using Lca.Core.Tenancy;
 
-namespace Lca.Application.Security;
+namespace Lca.Core.Security;
 
 public interface ITenantContext
 {
@@ -8,4 +8,3 @@ public interface ITenantContext
 
     TenantId? TenantId { get; }
 }
-

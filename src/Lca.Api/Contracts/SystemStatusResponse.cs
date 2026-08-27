@@ -6,4 +6,3 @@ public sealed record SystemStatusResponse(
     string Version,
     DateTimeOffset TimestampUtc,
     string CorrelationId);
-

@@ -1,5 +1,6 @@
 using System.Security.Claims;
-using Lca.Application.Security;
+
+using Lca.Core.Security;
 
 namespace Lca.Api.Security;
 
@@ -17,4 +18,3 @@ public sealed class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : 
         ? Principal?.FindAll(TrustedClaimTypes.Permission).Select(static claim => claim.Value).ToArray() ?? []
         : [];
 }
-

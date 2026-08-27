@@ -1,0 +1,9 @@
+services:
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Staging
+      Cors__AllowedOrigins__0: http://localhost:${WEB_PORT:-3000}
+
+  web:
+    environment:
+      NODE_ENV: production

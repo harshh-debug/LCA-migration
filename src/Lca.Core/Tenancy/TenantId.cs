@@ -1,4 +1,4 @@
-namespace Lca.Domain.Tenancy;
+namespace Lca.Core.Tenancy;
 
 public readonly record struct TenantId
 {
@@ -16,4 +16,3 @@ public readonly record struct TenantId
 
     public override string ToString() => Value;
 }
-

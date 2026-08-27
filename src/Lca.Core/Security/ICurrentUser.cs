@@ -1,4 +1,4 @@
-namespace Lca.Application.Security;
+namespace Lca.Core.Security;
 
 public interface ICurrentUser
 {
@@ -8,4 +8,3 @@ public interface ICurrentUser
 
     IReadOnlyCollection<string> Permissions { get; }
 }
-
