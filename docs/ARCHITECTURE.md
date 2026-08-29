@@ -1,6 +1,6 @@
 # Target Architecture
 
-> **Scope note:** This document describes complete-project target direction. Current implementation is limited to the Sprint 1 web frontend, ASP.NET Core backend, shared API, and database groundwork defined in [the documentation guide](README.md). AI and Android elements shown in the conceptual visuals are not current implementation scope.
+> **Scope note:** This document describes complete-project target direction. Current implementation is limited to the Sprint 1 web frontend, ASP.NET Core backend, shared API, and database groundwork defined in [the documentation guide](buffer/README.md). AI and Android elements shown in the conceptual visuals are not current implementation scope.
 
 ## Architectural style
 
@@ -109,6 +109,24 @@ Potentially extract additional modules such as:
 
 Extraction is conditional, not mandatory.
 
+## Approved delivery dependency order
+
+The modular boundaries are introduced incrementally in this order:
+
+1. database access layer;
+2. configuration foundation;
+3. authentication, authorization, and trusted tenant context;
+4. shared utilities required by an approved slice;
+5. Product API;
+6. Category API, with Product and Category due by the end of Sprint 2;
+7. Customer API;
+8. Sales / Order APIs;
+9. Quotation API;
+10. Logistics API;
+11. required Sales/report and CRM read endpoints.
+
+This is a delivery priority, not permission to skip legacy characterization or cutover gates. Product, price, stock, Customer, and Order facts remain owned by authoritative backend data. External AI systems may consume these APIs, but AI agents, orchestration, and AI-specific migration modules remain outside this repository's current implementation scope.
+
 ## Architecture diagrams
 
 The following images describe the complete-project target concept. They do not establish the legacy schema, current deployment topology, or Sprint 1 implementation scope.
@@ -129,6 +147,6 @@ Legacy physical database facts must come from the [database documentation](datab
 
 ## Related documents
 
-- [Documentation guide and current Sprint 1 scope](README.md)
-- [Migration strategy](MIGRATION_STRATEGY.md)
+- [Documentation guide and current Sprint 1 scope](buffer/README.md)
+- [Migration strategy](buffer/MIGRATION_STRATEGY.md)
 - [Complete-project PRD](LCA_2.5_Month_PRD.md)

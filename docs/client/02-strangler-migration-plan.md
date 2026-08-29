@@ -12,6 +12,7 @@ It also distinguishes architectural decisions that are complete from production 
 | --- | --- |
 | **Verified** | Supported by the current repository, legacy discovery, or restored SQL Server evidence. |
 | **Inferred / Recommended** | A migration choice derived from the verified dependency map but not yet an approved production sequence or product decision. |
+| **Approved Target Requirement** | A client-approved target priority or delivery constraint; implementation and cutover still require evidence gates. |
 | **Needs Client / Production Confirmation** | Requires business, deployment, access-log, provider, or production-infrastructure evidence. |
 
 ## 1. Executive Summary
@@ -232,26 +233,43 @@ flowchart LR
 
 ## 8. Migration Sequence / Wave Plan
 
-The following is a **Recommended sequence**, derived from the verified dependency map. It is not represented as a client-approved production schedule. Business priority can change the order of Product and Customer reads, but the security/tenant foundation and per-slice ownership gates cannot be skipped.
+The following is the **Approved Target Requirement** for implementation priority. The order is fixed; the date or cutover of an item can still be held when its evidence gate is unmet. Holding a blocked slice does not authorize a later dependent slice to bypass authentication, tenant isolation, characterization, or reconciliation.
 
-| Wave | Capability | Why this order | Major dependencies / confirmation gates | Legacy remains active? |
+```mermaid
+flowchart LR
+    Foundation["Sprint 1<br/>1 DAL -> 2 Config -> 3 Auth -> 4 Utilities"]
+    CoreData["Sprint 2<br/>5 Product -> 6 Category -> 7 Customer"]
+    Commerce["Sprint 3<br/>8 Sales/Order -> 9 Quotation -> 10 Logistics"]
+    Reports["Sprint 4<br/>11 Reports / required CRM reads"]
+
+    Foundation --> CoreData --> Commerce --> Reports
+```
+
+| Priority | Sprint / capability | Why this order | Major dependencies / confirmation gates | Legacy remains active? |
 | --- | --- | --- | --- | --- |
-| 0 | Production evidence and coexistence foundation | Routing, security, observability, and rollback are prerequisites for safe traffic movement | IIS/proxy topology, host/firm/database map, identity source, active callers, storage topology, cutover owner | Yes, entirely |
-| 1 | Read-only Product and Customer characterization APIs | Proves the new secured API boundary against shared master data without competing writes | Correct database context, visibility rules, representative data, output comparison; Product or Customer may go first by priority | Yes; all writes and legacy routes remain |
-| 2 | Product and Customer write ownership | These masters support most transactional modules and must become stable before dependent writes move | Product images/trigger/sync consumers; Customer identifiers/contact authority/delete/import signals; one writer per aggregate | Yes for non-migrated paths and retained workflows |
-| 3 | Quotation/RFQ plus selected reporting/catalogue reads | Quotation has strong discovery evidence; reports are mainly readers, but both require URL/output compatibility | External callers, firm authorization, product/customer/pricing, quote-to-order conversion, PDFs/attachments; report output contracts | Yes for legacy outputs until individually accepted |
-| 4 | Sales orders and fulfillment | Depends on trusted Product/Customer behavior and contains transaction/procedure/document coupling | Order procedure contracts, pricing, dispatch state, output IDs, images/PDFs, mobile/external consumers | Yes for unmigrated entry/output/dispatch paths |
-| 5 | Purchasing and shared transportation | Purchasing depends on Product and shares trip/carrier state with sales fulfillment | Divergent desktop/API writes, shared trip IDs, purchase/sales output anomalies, delivery evidence, notifications | Yes until the complete action is owned |
-| 6 | Remaining reports, documents, imports, engagement, and integrations | These are cross-cutting or operationally uncertain and should move after their data owners and consumers are known | Public URLs, native PDF runtime, workbook contracts, schedulers, queue consumers, provider ownership and remote sources | Yes per capability until accepted |
+| 1 | Sprint 1 — Database access layer | Every migrated API needs a controlled persistence boundary | `db.cs` is not universal; verify direct SQL, procedures, connection aliases, firm routing, and provider isolation; EF Core/Dapper choice may be per use case | Yes, entirely |
+| 2 | Sprint 1 — Configuration | Database and provider behavior needs validated environment-specific configuration | Map `web.config` settings by meaning; use options validation and external secrets; do not copy credentials | Yes, entirely |
+| 3 | Sprint 1 — Authentication, authorization, and tenant context | Business APIs must be secured before exposure | Authoritative identity database, credential profile/reset or rehash path, permission mapping, firm entitlement, JWT contract, cross-tenant tests | Yes for legacy login/session and routes |
+| 4 | Sprint 1 — Shared utilities | Later order/customer workflows need selected notification/crypto behavior | Split `CommonFunction.cs` by responsibility; identify callers, files, providers, retries, secrets, and one side-effect owner | Yes for unclaimed workflows |
+| 5 | Sprint 2 — Product API | Highest-priority blocker and base data for commerce consumers | `Mobile_ItemMaster`, image trigger/files, price/stock visibility, sync/import consumers, stable `ItemCode`, reconciliation | Yes until reads/writes are individually accepted |
+| 6 | Sprint 2 — Category API | Required with Product by the end of Sprint 2 | `CategoryMastertbl`, applicable subcategory/lookups, unusual declared self-FK, e-commerce mappings, tenant visibility | Yes until individually accepted |
+| 7 | Sprint 2 — Customer API | Required for customer-scoped queries after Product/Category | `Customer` versus `Mobile_Customertbl`, `CustomerID`/`Account_no`, PII visibility, contact authority, delete/import/sync signals | Yes until individually accepted |
+| 8 | Sprint 3 — Sales / Order APIs | Required for sales analytics and depends on secured master-data contracts | Order master/detail and procedures, pricing, dispatch, IDs, documents, notifications, external consumers | Yes for unmigrated order paths |
+| 9 | Sprint 3 — Quotation API | Depends on Product, Customer, pricing, and order-conversion behavior | External callers, firm authorization, PDFs/attachments, quote-to-order conversion, notifications | Yes for unmigrated quotation paths |
+| 10 | Sprint 3 — Logistics API | Depends on characterized order/fulfillment state | `transportationtbl`, trips/transactions, shared purchase/sales state, delivery evidence, provider side effects | Yes until the complete action is owned |
+| 11 | Sprint 4 — Sales/report endpoints and required CRM reads | Reporting follows stable authoritative transactional APIs | Output contracts, tenant/customer visibility, aggregates, files, performance, reconciliation | Yes per report until accepted |
 
 ### Sequence principles
 
 - Platform security and tenant/firm resolution precede business APIs.
 - Read-only comparison precedes write ownership where practical.
-- Product and Customer are enabling domains, but their files, contacts, imports, and sync behavior prevent simplistic CRUD replacement.
-- Orders, Quotations, Purchasing, and Transportation move only after the required master-data contracts are stable.
+- Product and Category precede Customer and are due by the end of Sprint 2; their files, lookups, imports, and sync behavior prevent simplistic CRUD replacement.
+- Customer follows Product and Category; Sales/Order follows Customer.
+- Orders, Quotations, and Transportation move only after the required master-data contracts are stable.
 - High-risk document, import, remote-content, and messaging workflows are separate slices rather than hidden inside master-data CRUD.
 - No wave requires redesigning all 127 tables or choosing microservices first.
+
+AI systems are downstream consumers only for this repository plan. Product/Category may unblock a Product Onboarding Bot, Customer may unblock chatbot customer queries, and Sales/Order may unblock chatbot analytics, but AI agents and AI orchestration are not implemented here. The legacy `AICategory`, `AICategoryProductMapping`, and `AIImages` tables are not a scheduled API/module wave unless a separately approved compatibility need is established.
 
 ## 9. Database Coexistence Strategy
 
@@ -582,7 +600,7 @@ The diagram does not imply that all database tables, files, or integrations chan
 - Shared file-storage topology, ACLs, URL mapping, retention, backup, and migration mechanism.
 - Provider ownership and operational contracts for messaging, maps, e-commerce, remote content, and document generation.
 - Final target database engine, target schema, type transformations, and data-cutover design.
-- Final business-priority order and operational cutover windows for the recommended migration waves.
+- Operational cutover windows for the approved migration priorities.
 - Production monitoring platform, dashboards, alert thresholds, and operational ownership.
 
 > **Key takeaway:** The migration architecture is finalized: coexist, route explicitly, migrate vertical slices, reconcile, observe, and retire safely. Product choices and production facts that depend on the client environment remain deliberately open rather than being presented as completed decisions.

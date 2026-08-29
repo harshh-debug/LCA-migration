@@ -1,15 +1,20 @@
 using System.Reflection;
+using System.Text;
+using System.Text.Json.Serialization;
 
 using Lca.Api.Configuration;
 using Lca.Api.Contracts;
 using Lca.Api.Infrastructure;
 using Lca.Api.Security;
 using Lca.Core.Security;
+using Lca.Infrastructure;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
 
 if (args is ["--health-check"])
 {
@@ -60,24 +65,77 @@ builder.Services.AddProblemDetails(options =>
         context.ProblemDetails.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
     };
 });
-builder.Services.AddOpenApi();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecurityDocumentTransformer>();
+    options.AddOperationTransformer<BearerSecurityOperationTransformer>();
+});
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
-builder.Services.AddSingleton<IAuthorizationHandler, TenantRequiredHandler>();
-builder.Services
-    .AddAuthentication(UnavailableAuthenticationHandler.SchemeName)
-    .AddScheme<AuthenticationSchemeOptions, UnavailableAuthenticationHandler>(
-        UnavailableAuthenticationHandler.SchemeName,
-        static _ => { });
+builder.Services.AddScoped<IAuthorizationHandler, TenantRequiredHandler>();
+builder.Services.AddLcaInfrastructure(builder.Configuration);
+
+JwtOptions jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+builder.Services.AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .Validate(
+        options => builder.Environment.IsDevelopment() || options.IsConfigured,
+        "JWT issuer, audience, and a signing key of at least 32 characters are required outside Development.")
+    .ValidateOnStart();
+
+if (jwtOptions.IsConfigured)
+{
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtOptions.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtOptions.Audience,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(1),
+                NameClaimType = "sub",
+                RoleClaimType = "role",
+            };
+        });
+}
+else
+{
+    builder.Services.AddAuthentication(UnavailableAuthenticationHandler.SchemeName)
+        .AddScheme<AuthenticationSchemeOptions, UnavailableAuthenticationHandler>(
+            UnavailableAuthenticationHandler.SchemeName,
+            static _ => { });
+}
+
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.TenantRequired, policy =>
     {
         policy.RequireAuthenticatedUser();
         policy.AddRequirements(new TenantRequiredRequirement());
-    });
+    })
+    .AddPolicy(Policies.CatalogRead, policy => AddTenantPermission(policy, Permissions.CatalogRead))
+    .AddPolicy(Policies.ProductDraftCreate, policy => AddTenantPermission(policy, Permissions.ProductDraftCreate))
+    .AddPolicy(Policies.ApprovalQueueRead, policy => AddTenantPermission(policy, Permissions.ApprovalQueueRead))
+    .AddPolicy(Policies.ApprovalQueueApprove, policy => AddTenantPermission(policy, Permissions.ApprovalQueueApprove));
+
+static void AddTenantPermission(AuthorizationPolicyBuilder policy, string permission)
+{
+    policy.RequireAuthenticatedUser();
+    policy.RequireClaim("sub");
+    policy.AddRequirements(new TenantRequiredRequirement());
+    policy.RequireClaim(TrustedClaimTypes.Permission, permission);
+}
 
 WebApplication app = builder.Build();
 
@@ -91,6 +149,7 @@ app.UseStatusCodePages(async statusContext =>
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapControllers();
 
 if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {

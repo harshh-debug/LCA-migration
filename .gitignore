@@ -73,6 +73,7 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+.tmp/
 
 # Tye
 .tye/
@@ -497,3 +498,9 @@ docs/*
 docs/*/
 !docs/client/
 !docs/client/**
+
+# Local-only infrastructure tests; never publish this folder.
+/tests/
+
+# Local-only development helpers; never publish this folder.
+/scripts/

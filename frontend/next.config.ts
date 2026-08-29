@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
-const apiInternalUrl = process.env.API_INTERNAL_URL ?? "http://localhost:8080";
+const apiBaseUrl =
+  process.env.API_BASE_URL ?? process.env.API_INTERNAL_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -9,11 +10,10 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: `${apiInternalUrl}/api/:path*`,
+        destination: `${apiBaseUrl}/api/:path*`,
       },
     ];
   },
 };
 
 export default nextConfig;
-

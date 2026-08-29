@@ -11,7 +11,7 @@ public sealed class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : 
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated == true;
 
     public string? UserId => IsAuthenticated
-        ? Principal?.FindFirstValue(ClaimTypes.NameIdentifier)
+        ? Principal?.FindFirstValue(ClaimTypes.NameIdentifier) ?? Principal?.FindFirstValue("sub")
         : null;
 
     public IReadOnlyCollection<string> Permissions => IsAuthenticated
