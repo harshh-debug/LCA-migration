@@ -6,5 +6,5 @@ public interface ICurrentUser
 
     string? UserId { get; }
 
-    IReadOnlyCollection<string> Permissions { get; }
+    AccountType? AccountType { get; }
 }

@@ -1,732 +1,473 @@
-# AGENTS.md — LCA Web & Backend Migration
+# AGENTS.md
 
-## 1. Purpose
+## LCA Codex Working Rules
 
-This file defines how AI coding agents must work in this repository.
+This repository is the **new LCA multi-tenant SaaS migration platform**.
 
-LCA is a **legacy migration and modernization project**, not a greenfield rewrite.
+Do not treat it as a simple ASP.NET Web Forms → ASP.NET Core code conversion.
 
-The user’s implementation scope in this repository is limited to:
-
-- Web frontend
-- ASP.NET Core / .NET backend
-- Shared secured APIs
-- Authentication and authorization
-- Multi-tenancy
-- Core commerce/business modules
-- Legacy SQL Server migration and reconciliation
-- Backend integrations required by the web/backend scope
-- Testing, compatibility, and strangler migration work
-
-AI-agent features, Android/mobile implementation, and unrelated long-term platform work are outside the current implementation scope unless the user explicitly reopens them.
+The goal is to migrate verified LCA business capabilities into a tenant-aware ASP.NET Core / .NET 10 + Next.js platform using a new SQL Server database.
 
 ---
 
-## 2. Repository Documentation
+## 1. Legacy Repository Location
 
-Before planning or coding, inspect the relevant documentation.
-
-Current documentation structure:
+Set the legacy repository root before migration work:
 
 ```text
-/
-├── AGENTS.md
-├── README.md
-└── docs/
-    ├── README.md
-    ├── ARCHITECTURE.md
-    ├── Architecture-principle.jpg
-    ├── ER-diagram.jpg
-    ├── main-business-flow.jpg
-    ├── MIGRATION_STRATEGY.md
-    ├── LCA_2.5_Month_PRD.md
-    ├── Legacy_docs/
-    │   ├── 00-phase1-discovery-status.md
-    │   ├── FINAL-PHASE1-RECONCILIATION.md
-    │   ├── MASTER-APPLICATION-FLOW.md
-    │   ├── MASTER-DATABASE-SCHEMA.md
-    │   └── MASTER-REPOSITORY-INVENTORY.md
-    └── database/
-        ├── README.md
-        ├── LEGACY_SCHEMA_INVENTORY.md
-        ├── KEYS_RELATIONSHIPS_AND_INDEXES.md
-        ├── PROGRAMMABLE_OBJECTS.md
-        └── docs/
-            ├── database-columns.txt
-            ├── database-primary-keys.txt
-            ├── database-foreign-keys.txt
-            ├── database-indexes.txt
-            ├── database-stored-procedures.sql
-            ├── database-triggers.sql
-            └── database-functions.sql
+LEGACY_REPO_ROOT = /media/harshcode/New Volume/Development/LCA/httpdocs-20260824T054956Z-1-001/httpdocs
 ```
 
-Do not invent additional documentation requirements unless the task genuinely needs them.
+When this placeholder has not been replaced and a task requires legacy inspection, ask for the legacy repository path before proceeding.
+
+Do not guess the legacy repo location.
 
 ---
 
-## 3. Required Reading Order
+## 2. Mandatory Context Before Every Task
 
-For general work:
-
-1. `README.md`
-2. `docs/README.md`
-3. `docs/LCA_2.5_Month_PRD.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/MIGRATION_STRATEGY.md`
-
-For database, persistence, repository, SQL, schema, migration, or reconciliation work, also read:
-
-6. `docs/database/README.md`
-7. `docs/database/LEGACY_SCHEMA_INVENTORY.md`
-8. `docs/database/KEYS_RELATIONSHIPS_AND_INDEXES.md`
-9. `docs/database/PROGRAMMABLE_OBJECTS.md`
-10. `docs/Legacy_docs/MASTER-DATABASE-SCHEMA.md`
-11. `docs/Legacy_docs/FINAL-PHASE1-RECONCILIATION.md`
-
-Do not start database implementation from the conceptual architecture alone.
-
----
-
-## 4. Scope Source of Truth
-
-The PRD is the main product/scope reference for the migration.
-
-However, this repository’s current implementation responsibility is narrower than the entire PRD.
-
-### In scope here
-
-- Existing ASPX web migration
-- Web frontend rebuild
-- ASP.NET Core / .NET backend migration
-- Shared API layer
-- Authentication
-- Authorization
-- Tenant/business context
-- Product/catalogue
-- Customer
-- Pricing
-- Inventory
-- Cart
-- Orders
-- RFQ / quotation
-- Search where required by the migrated web experience
-- Database migration
-- Data reconciliation
-- Required backend integrations
-- Testing
-- Legacy/new-system coexistence
-- Cutover preparation
-
-### Out of scope here
-
-Do not implement unless the user explicitly asks:
-
-- AI Gateway
-- AI agents
-- AI orchestration
-- LLM integration
-- AI Analytics Chatbot
-- AI Media Agent
-- AI Marketing Agent
-- AI Logistics Agent
-- Product Onboarding AI automation
-- Embeddings/vector-AI work
-- Android / Flutter application
-- unrelated long-term roadmap capabilities
-
-The PRD may mention those capabilities because it covers the broader LCA project. Their presence in the PRD does not make them part of this repository’s current implementation work.
-
----
-
-## 5. Current Technical Direction
-
-### Legacy system
-
-- Existing application: ASPX / legacy .NET-era web application
-- Legacy database: Microsoft SQL Server / T-SQL
-- Existing system must remain operational during progressive migration
-
-### Target backend
-
-- .NET 10
-- ASP.NET Core
-- Modular-first architecture
-
-### Target web frontend
-
-- React
-- Next.js
-- TypeScript
-
-### Database
-
-The source database is SQL Server.
-
-The final target database engine must not be assumed unless explicitly decided by the project.
-
-The PRD refers to the target store as:
+Always read:
 
 ```text
-PostgreSQL / SQL Server
+.agents/codex/00-PROJECT-CONTEXT.md
+.agents/codex/06-CURRENT-SCOPE.md
+.agents/codex/07-DECISIONS-AND-OPEN-QUESTIONS.md
 ```
 
-Therefore do not hard-code a final database-engine decision unless the user or repository explicitly establishes one.
+Then read only the task-specific files needed.
 
----
-
-## 6. Architectural Direction
-
-The target should begin as a **modular application / modular monolith**.
-
-Do not create many microservices by default.
-
-Prefer clear module boundaries inside one deployable backend unless there is a concrete reason to extract a service.
-
-Possible extraction reasons include:
-
-- independent scaling
-- failure isolation
-- deployment independence
-- strong ownership boundary
-- regulatory/compliance requirement
-- materially different runtime characteristics
-
-Do not introduce distributed-system complexity before it is justified.
-
----
-
-## 7. Strangler Migration Rule
-
-This is a migration project.
-
-Do not replace the legacy system all at once.
-
-Preferred approach:
+### Task-specific reading
 
 ```text
-Legacy capability remains operational
-        ↓
-Understand current behavior
-        ↓
-Introduce new backend/API path
-        ↓
-Move selected traffic/use cases
-        ↓
-Compare and reconcile results
-        ↓
-Expand ownership
-        ↓
-Retire legacy path only after verification
+Architecture/design
+→ .agents/codex/01-TARGET-ARCHITECTURE.md
+
+Understanding what currently exists
+→ .agents/codex/02-CURRENT-STATE.md
+
+Database / tenancy / TenantId / membership
+→ .agents/codex/03-DATA-AND-TENANCY.md
+
+Legacy migration / parity / cutover / reconciliation
+→ .agents/codex/04-LEGACY-MIGRATION.md
+
+Coding / implementation / testing
+→ .agents/codex/05-IMPLEMENTATION-RULES.md
 ```
 
-Before replacing any legacy capability:
-
-1. inspect the existing implementation;
-2. identify the relevant database objects;
-3. determine current inputs, outputs, and side effects;
-4. preserve required business behavior;
-5. implement the smallest compatible target slice;
-6. verify against legacy behavior;
-7. reconcile data/results;
-8. keep rollback/coexistence possible until accepted.
-
-A cleaner implementation is not enough reason to change legacy behavior.
+Do not load every historical document for every task.
 
 ---
 
-## 8. Multi-Tenancy
+## 3. Source-of-Truth Order
 
-LCA is a multi-tenant platform.
+When information conflicts, use this order:
 
-Core actors:
+```text
+1. Current explicit user instruction
+2. .agents/codex/07-DECISIONS-AND-OPEN-QUESTIONS.md
+3. .agents/codex/06-CURRENT-SCOPE.md
+4. Accepted target/data/migration/implementation rules
+5. Actual current repository implementation
+6. Historical/reference documentation
+7. Legacy implementation details
+```
 
-- Platform Owner — C
-- Business / Tenant — B1, B2, B3...
-- Customer / Consumer — A
+Existing code does not override a newer accepted architecture decision merely because it already exists.
 
-Tenant isolation must be enforced by the backend.
-
-Do not rely on frontend filtering.
-
-For tenant-scoped operations:
-
-- derive tenant context from trusted authentication/authorization context;
-- explicitly scope data access;
-- explicitly scope search;
-- explicitly scope caches if used;
-- explicitly scope background jobs/events if introduced;
-- add tests proving cross-tenant access is denied.
-
-Never trust a client-provided tenant identifier by itself.
+If current code conflicts with an accepted decision, flag the conflict and implement against the accepted direction after plan approval.
 
 ---
 
-## 9. Authentication and Authorization
+## 4. Current Architectural Baseline
 
-Keep authentication and authorization separate.
+Treat these as current accepted direction:
 
-Authentication answers:
+```text
+ASP.NET Core / .NET 10
+Next.js
+SQL Server
+modular monolith initially
+Lca.Api + Lca.Core + Lca.Infrastructure
+one new SQL Server database
+shared schema
+TenantId-based tenant ownership
+global User identity
+TenantMembership for tenant association
+ASP.NET Core Identity
+backend-issued JWT
+active tenant resolved from valid membership during login
+tenant_id carried in JWT
+platform and tenant authorization scopes kept separate
+```
 
-> Who is this user?
-
-Authorization answers:
-
-> What is this user allowed to do in this tenant/context?
-
-Do not infer the final target permission model directly from legacy flags such as:
-
-- `IsAdmin`
-- page-level booleans
-- legacy area/group permission columns
-
-Legacy permissions must first be understood and mapped.
-
----
-
-## 10. Legacy Database Is Evidence, Not a Suggestion
-
-The database documentation under `docs/database/` is based on actual exported SQL Server metadata.
-
-Current verified structural snapshot:
-
-- 127 tables
-- 1,297 columns
-- 92 tables with declared primary keys
-- 35 tables without declared primary keys
-- 2 composite primary keys
-- 6 declared foreign-key constraints
-- 101 distinct index names
-- 9 non-primary-key indexes
-- 38 stored procedure names
-- 1 trigger
-- 5 functions
-
-These are observed facts from the supplied exports.
-
-If later direct inspection of the restored database produces different results, update the documentation rather than silently choosing one version.
+The existing per-tenant database-routing implementation is superseded and must not be extended.
 
 ---
 
-## 11. Database No-Hallucination Rules
+## 5. Current Product Focus
 
-### 11.1 Do not infer relationships from names
+The current priority is an **internal administration / order-management system**.
 
-Matching names such as:
+Current work includes:
 
-- `CustomerID`
-- `OrderID`
-- `ItemCode`
-- `Productid`
-- `SupplierID`
-- `Transportation_Id`
-- `User_ID`
+```text
+multi-tenant foundation
+Identity & Access
+Product
+Category
+Pricing
+Inventory
+Customer
+Orders
+minimal internal Next.js administration UI
+```
 
-do not prove a foreign-key relationship.
+Do not expand into:
 
-Only treat a relationship as declared when it is present in the actual database evidence.
+```text
+full consumer ecommerce storefront
+AI implementation
+tenant self-service signup
+subscription billing
+plan management
+platform-owner dashboard
+microservice extraction
+```
 
-Possible relationships discovered from code/data may be recorded as candidates until verified.
-
-### 11.2 Do not automatically redesign the schema
-
-Do not automatically:
-
-- add primary keys
-- add foreign keys
-- rename columns
-- normalize tables
-- merge similar tables
-- change nullability
-- add uniqueness
-- change data types
-- remove duplicate-looking structures
-
-First establish:
-
-- current usage
-- legacy compatibility
-- actual data quality
-- migration impact
-
-### 11.3 Preserve unusual evidence
-
-Some exported FK definitions appear unusual.
-
-Do not silently “fix” them because another relationship looks more logical.
-
-Recheck the restored database and record the discrepancy.
+unless scope is explicitly changed.
 
 ---
 
-## 12. Programmable Database Objects
+## 6. Before Coding
 
-The currently supplied stored procedure, function, and trigger exports are incomplete/truncated for most objects.
+For a coding task:
 
-They are authoritative for:
+1. inspect the relevant current implementation;
+2. read the required agent docs;
+3. if it is a migration slice, inspect the relevant legacy behavior;
+4. produce a concise implementation plan;
+5. identify genuine decision points or blockers;
+6. wait for plan confirmation when the user requested/requires review;
+7. after confirmation, implement the agreed plan without repeatedly asking permission for steps already covered by that approval.
 
-- object names
-- exact visible SQL fragments
-- visible dependencies only
+Do not stop repeatedly for routine implementation choices already implied by the approved plan.
 
-They are not sufficient for reconstructing complete business logic.
-
-Current inventory:
-
-- 38 stored procedures
-- 1 trigger: `dbo.tg_Mobile_ItemMaster`
-- 5 functions:
-  - `dbo.FlattenedJSON`
-  - `dbo.fnSplitString`
-  - `dbo.getLocationName`
-  - `dbo.getRoodId`
-  - `dbo.SplitString`
-
-Visible procedure fragments also reveal user-defined/table-type dependencies such as:
-
-- `CUSTOMER`
-- `RECEIVABLE`
-
-Do not invent missing SQL behavior.
-
-Before rewriting active stored logic:
-
-1. obtain the full SQL definition where possible;
-2. locate callers in the legacy application;
-3. identify reads/writes and side effects;
-4. identify transaction boundaries;
-5. capture representative behavior;
-6. add characterization tests;
-7. decide whether to preserve SQL temporarily or move behavior into .NET;
-8. compare target behavior with legacy behavior.
+If a **new approval-gated decision** appears during implementation, stop and raise only that new decision.
 
 ---
 
-## 13. Database Migration and Reconciliation
+## 7. Legacy Inspection Rule
 
-The PRD requires migration with reconciliation against the legacy system.
+For legacy behavior, start with:
 
-Migration work should be:
+```text
+<LEGACY_REPO_ROOT>/api/
+```
 
-- repeatable where practical;
-- observable;
-- auditable;
-- restart-safe where practical;
-- explicit about source/target identifiers;
-- explicit about transformations;
-- testable on production-like data.
+Inspect the smallest relevant endpoint set first.
 
-For each migrated area, define reconciliation such as:
+Follow dependencies outside `/api/` only when required, including:
 
-- source row count;
-- target row count;
-- rejected-row count;
-- identifier mapping;
-- aggregate totals where meaningful;
-- conversion failures;
-- orphan detection;
-- sample record comparison;
-- business-level validation.
+```text
+App_Code/
+root ASPX pages
+stored procedures
+triggers
+mobile/
+test-api/
+deepak/
+ASMX / WebMethods
+files
+external integrations
+```
 
-Do not declare migration complete merely because an import script ran successfully.
+Do not scan the entire legacy repository for every task.
 
----
-
-## 14. Data-Type Migration
-
-The legacy schema contains many nullable and string-heavy columns.
-
-Do not convert a legacy string field into a target:
-
-- date
-- number
-- boolean
-- enum
-- UUID
-- foreign key
-
-without profiling actual values first.
-
-For any conversion, define:
-
-- valid source patterns;
-- invalid values;
-- null/empty behavior;
-- conversion rule;
-- rejected-row policy;
-- reconciliation rule.
-
-Schema appearance alone is not sufficient.
+`/api/` is the primary inspection surface, not proof that all behavior lives there.
 
 ---
 
-## 15. Shared API Layer
+## 8. Migration Principle
 
-The web frontend must use the shared secured backend APIs.
+Migrate **business capability**, not legacy file structure.
 
-Do not allow the frontend to connect directly to the database.
+Do not create one modern endpoint/service for every ASPX page.
 
-API design should be consistent around:
+For each migrated capability:
 
-- authentication;
-- authorization;
-- validation;
-- pagination;
-- filtering;
-- error handling;
-- versioning where required;
-- tenant context;
-- correlation/observability where appropriate.
+```text
+understand legacy behavior
+→ identify data / permissions / integrations / side effects
+→ define tenant-aware target behavior
+→ implement smallest safe slice
+→ migrate/reconcile legacy data into the new SQL Server
+→ verify behavior and tenant isolation
+→ move ownership deliberately
+```
 
-Do not duplicate core business data into separate frontend-owned stores.
+The legacy application keeps its own database during coexistence.
 
----
+The new platform uses its own SQL Server database.
 
-## 16. Core Business Data
-
-Critical business facts must come from backend/business services and authoritative data.
-
-Examples:
-
-- Product / SKU
-- Price
-- Inventory / stock
-- Customer
-- Order
-- RFQ / quotation
-- Payment state if handled in scope
-- Shipment state if handled in scope
-
-Do not create duplicate sources of truth without an explicit migration/compatibility reason.
+Existing LCA business data is migrated/reconciled as the initial tenant.
 
 ---
 
-## 17. Integrations
+## 9. Write Ownership
 
-Keep external provider logic behind clear backend boundaries/adapters.
+Each production business action/aggregate should have one authoritative writer at a time.
 
-Relevant integration categories may include:
+Do not introduce automatic dual writes.
 
-- payment providers
-- logistics / courier / 3PL
-- ERP / WMS
-- WhatsApp
-- email
-
-Do not leak provider-specific SDK details into core domain logic.
-
-For webhook/external-event processing where applicable:
-
-- verify authenticity;
-- make processing idempotent;
-- handle duplicates;
-- define retries;
-- persist provider references;
-- add operational visibility.
+Temporary legacy reads are allowed for an approved migration slice, but legacy access must be treated as compatibility/coexistence logic rather than final SaaS persistence.
 
 ---
 
-## 18. Events and Background Work
+## 10. Implementation Defaults
 
-Use asynchronous events/background work only when they materially help the use case.
+Use:
 
-Do not introduce an event bus merely because the long-term architecture mentions event-driven workflows.
+```text
+ASP.NET Core Controllers as the primary API style
+EF Core as the default persistence technology
+EF Core migrations for new target-schema changes
+explicit request/business validation
+server-side authorization
+tenant-scoped reads and writes
+local verification/tests
+```
 
-Prefer synchronous logic when it is simpler and correct.
+Preserve relevant legacy stored-procedure behavior unless there is a justified exception.
 
-If events/background jobs are introduced, make them:
-
-- idempotent;
-- retry-safe;
-- observable;
-- tenant-aware where relevant;
-- recoverable after failure.
-
-Never assume exactly-once delivery.
-
----
-
-## 19. Search
-
-Search may be part of the migrated web/backend scope.
-
-If implemented:
-
-- search results must respect tenant/customer visibility;
-- search is not authoritative for price, stock, order state, or other transactional facts;
-- business-critical values should be resolved from authoritative backend services/data.
-
-Do not implement future AI/vector/image/voice search unless explicitly requested.
+Do not reproduce unsafe legacy implementation patterns such as direct page SQL, weak authorization, or implicit single-business assumptions.
 
 ---
 
-## 20. Testing Expectations
+## 11. Dapper Rule
 
-Use the appropriate combination of:
+Do not introduce Dapper automatically.
 
-- unit tests;
-- integration tests;
-- API tests;
-- tenant-isolation tests;
-- authorization tests;
-- database migration tests;
-- characterization tests against legacy behavior;
-- reconciliation tests;
-- idempotency tests;
-- end-to-end tests for critical web flows.
+If Dapper appears useful:
 
-For migration work, a test proving legacy/target compatibility is often more valuable than one proving only internal correctness of the new implementation.
+1. explain the specific query/use case;
+2. explain why EF Core is insufficient or materially worse;
+3. explain whether the use is temporary compatibility or target architecture;
+4. explain tenant-isolation implications;
+5. ask for approval.
+
+Implement Dapper only after approval.
 
 ---
 
-## 21. Implementation Workflow
+## 12. Tenant Safety
 
-Before coding:
+For tenant-owned operations, enforce:
 
-### Step 1 — Inspect
+```text
+authenticated user
+→ valid TenantMembership
+→ trusted tenant context
+→ authorization
+→ TenantId-scoped persistence
+```
 
-Inspect:
+Do not trust arbitrary `TenantId` values supplied by the client for normal tenant operations.
 
-- repository structure;
-- relevant docs;
-- existing implementation;
-- legacy implementation where available;
-- relevant database evidence;
-- tests.
+Do not silently fall back to a default tenant.
 
-### Step 2 — Separate facts from unknowns
-
-State:
-
-- verified facts;
-- target requirements;
-- assumptions;
-- open questions.
-
-Do not hide assumptions inside code.
-
-### Step 3 — Plan a small slice
-
-Define:
-
-- files/modules affected;
-- legacy compatibility boundary;
-- authoritative data;
-- tenant/security impact;
-- API contract;
-- migration/reconciliation impact;
-- tests;
-- rollback/coexistence concerns.
-
-### Step 4 — Implement incrementally
-
-Prefer small, reviewable, testable changes.
-
-Do not scaffold the entire long-term architecture at once.
-
-### Step 5 — Verify
-
-Run the relevant:
-
-- build;
-- tests;
-- lint/format checks;
-- database checks;
-- reconciliation checks.
+Prefer fail-closed behavior.
 
 ---
 
-## 22. Security
+## 13. Roles and Permissions
 
-Do not commit:
+Implement only the roles/permissions required by approved slices.
 
-- `.bak` production database backups;
-- secrets;
-- API keys;
-- passwords;
-- production connection strings with credentials;
-- customer/business-sensitive exports unless sanitized and approved.
+Do not invent the entire future RBAC model.
 
-Treat legacy database artifacts as sensitive.
+Legacy permission behavior must be inspected where relevant.
 
-Do not expose secrets or sensitive values in logs.
+If changing an ambiguous permission could change legitimate business behavior, ask before changing its semantics.
 
 ---
 
-## 23. Evidence Labels
+## 14. Approval Gates
 
-When documenting migration discoveries, use:
+Stop and ask before implementing any new requirement involving:
 
-- **Declared** — directly present in database/source evidence
-- **Observed** — verified through actual code/data/runtime behavior
-- **Candidate** — plausible but not yet verified
-- **Target Requirement** — required by PRD/approved architecture
-- **Target Proposal** — suggested future design
-- **Unknown** — insufficient evidence
+```text
+Dapper
+significant new NuGet/npm dependency
+event broker / general worker infrastructure
+new external integration
+tenancy-model change
+database-engine change
+material permission/authorization behavior change
+material legacy business-rule change
+microservice extraction
+AI scope expansion
+new unsupported ingestion mechanism
+new deployment/service architecture
+```
 
-Never promote a Candidate into a fact without new evidence.
+Explain:
 
----
+```text
+what is needed
+why
+available options
+recommended option
+impact
+```
 
-## 24. When to Stop Instead of Guessing
-
-Do not guess when missing information can materially affect:
-
-- data integrity;
-- tenant isolation;
-- authorization;
-- order/pricing/inventory behavior;
-- migration transformations;
-- target database design;
-- legacy compatibility;
-- external side effects.
-
-Surface the gap and continue only with work that does not depend on it.
-
----
-
-## 25. Prohibited Agent Behavior
-
-Do not:
-
-- treat LCA as a greenfield rewrite;
-- implement AI features in this repository unless explicitly requested;
-- implement Android/mobile work unless explicitly requested;
-- invent legacy schema or relationships;
-- infer foreign keys from matching names;
-- reconstruct missing stored-procedure logic;
-- silently redesign the legacy schema;
-- choose the final target database engine without a decision;
-- expose cross-tenant data;
-- create microservices without justification;
-- remove legacy paths before verification;
-- declare migration complete without reconciliation;
-- commit production backups or secrets;
-- generate large unrelated scaffolding when the user asks for a small step.
+Once approved, do not repeatedly ask permission for implementation steps already covered by that decision.
 
 ---
 
-## 26. Definition of Done for a Migrated Slice
+## 15. Redis, Search, and Events
 
-A migrated slice is complete only when the applicable items are satisfied:
+Redis and dedicated Search are target capabilities, but implement them only when a current approved slice actually requires them.
 
-- target behavior implemented;
-- authentication/authorization applied;
-- tenant isolation verified;
-- legacy behavior understood;
-- migration/transformation tested;
-- reconciliation completed;
-- relevant integration behavior verified;
-- tests pass;
-- coexistence/rollback impact understood;
-- no critical unexplained divergence remains.
+The exact Search provider and Redis hosting are not finalized.
+
+Do not introduce new event-bus/background-worker infrastructure merely because event-driven architecture may be useful.
+
+Preserve required existing async behavior; propose new event-driven improvements for approval first.
 
 ---
 
-## 27. Core Principle
+## 16. AI
 
-The objective is not to copy the legacy implementation blindly and not to redesign the system from imagination.
+AI is outside the current core migration scope.
 
-The objective is to:
+Existing AI-related code/schema is review/freeze-only.
 
-**understand the existing system accurately, preserve required business behavior, migrate the web and backend incrementally, reconcile data and behavior, and retire legacy paths only after the new implementation is demonstrably correct.**
+Do not expand:
+
+```text
+AI agents
+LLM providers
+orchestration
+embeddings
+autonomous writes
+AI governance infrastructure
+```
+
+unless AI scope is explicitly reopened.
+
+---
+
+## 17. Tests
+
+Add and run local tests where useful for:
+
+```text
+business behavior
+API behavior
+tenant isolation
+authorization
+legacy parity
+persistence behavior
+important failures
+```
+
+Current project preference is that development tests remain local and are not pushed to GitHub unless explicitly requested.
+
+Do not change `.gitignore` to start tracking local tests without approval.
+
+---
+
+## 18. Packages and Abstractions
+
+Do not add packages, projects, interfaces, repositories, factories, managers, or architectural layers merely for convention.
+
+Prefer the simplest design that preserves:
+
+```text
+clarity
+tenant safety
+testability
+migration compatibility
+maintainability
+```
+
+Add significant dependencies only when justified.
+
+---
+
+## 19. Documentation Maintenance
+
+When implementation materially changes the current repository state, update:
+
+```text
+.agents/codex/02-CURRENT-STATE.md
+```
+
+so it continues to describe what is actually implemented.
+
+Update it factually from code/runtime evidence.
+
+Do not use `02-CURRENT-STATE.md` to redefine target architecture or scope.
+
+Do **not** silently change accepted decisions in:
+
+```text
+03-DATA-AND-TENANCY.md
+06-CURRENT-SCOPE.md
+07-DECISIONS-AND-OPEN-QUESTIONS.md
+```
+
+If implementation requires changing those decisions, raise the decision first.
+
+---
+
+## 20. Current-State Documentation Rule
+
+`02-CURRENT-STATE.md` describes reality, not intent.
+
+When updating it:
+
+- distinguish implemented vs partial vs scaffolded vs experimental;
+- cite concrete repository evidence/file paths;
+- do not mark something implemented just because a class/folder/package exists;
+- record conflicts with target direction as review-required/experimental;
+- never expose secrets.
+
+---
+
+## 21. Scope Discipline
+
+Do not silently broaden a task.
+
+Avoid unrelated refactoring.
+
+If a migration task only needs Product behavior, do not redesign Customer, Orders, Search, AI, or infrastructure unless a real dependency requires it.
+
+If an out-of-scope dependency blocks the requested work, explain the dependency and ask for the smallest decision needed.
+
+---
+
+## 22. Completion Rule
+
+Do not claim completion merely because code compiles.
+
+Run relevant checks such as:
+
+```text
+dotnet build
+local tests
+frontend lint
+TypeScript checks
+frontend build where environment allows
+```
+
+If a check could not be run, say so explicitly.
+
+For migrated business functionality, also verify the relevant legacy parity, tenant isolation, and data reconciliation required by the slice.
+
+---
+
+## 23. Working Invariant
+
+> Preserve verified LCA business behavior, redesign it for the accepted tenant-aware SaaS architecture, keep implementation focused, and never let old migration assumptions or existing experimental code silently override accepted decisions.

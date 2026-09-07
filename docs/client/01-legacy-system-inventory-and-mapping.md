@@ -251,7 +251,7 @@ The following counts were reconciled from read-only metadata on the locally rest
 | User triggers | 1 |
 | Views | **Needs Client / Production Confirmation**; the available baseline did not establish a view inventory |
 
-All 127 observed tables are under the `dbo` schema. The restored database uses SQL Server 2022 and `SQL_Latin1_General_CP1_CI_AS` collation. The target database engine remains undecided; the PRD permits SQL Server or PostgreSQL.
+All 127 observed tables are under the `dbo` schema. The restored database uses SQL Server 2022 and `SQL_Latin1_General_CP1_CI_AS` collation. This statement describes the legacy evidence database only. The target platform decision is now **SQL Server**, using a separate new shared-schema database; the older PRD wording that permitted PostgreSQL is superseded.
 
 ### Simplified business-data map
 

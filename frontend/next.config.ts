@@ -4,6 +4,7 @@ const apiBaseUrl =
   process.env.API_BASE_URL ?? process.env.API_INTERNAL_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   output: "standalone",
   poweredByHeader: false,
   async rewrites() {

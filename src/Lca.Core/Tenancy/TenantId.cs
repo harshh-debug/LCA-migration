@@ -2,17 +2,17 @@ namespace Lca.Core.Tenancy;
 
 public readonly record struct TenantId
 {
-    public TenantId(string value)
+    public TenantId(long value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (value <= 0)
         {
-            throw new ArgumentException("A tenant identifier cannot be empty.", nameof(value));
+            throw new ArgumentOutOfRangeException(nameof(value), "A tenant identifier must be positive.");
         }
 
-        Value = value.Trim();
+        Value = value;
     }
 
-    public string Value { get; }
+    public long Value { get; }
 
-    public override string ToString() => Value;
+    public override string ToString() => Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }

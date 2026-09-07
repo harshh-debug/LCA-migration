@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Lca.Core/Lca.Core.csproj" />
+    <ProjectReference Include="../Lca.Infrastructure/Lca.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

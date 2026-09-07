@@ -1,27 +1,23 @@
-using System.Security.Claims;
-
 using Lca.Core.Security;
 using Lca.Core.Tenancy;
 
 namespace Lca.Api.Security;
 
-public sealed class HttpTenantContext(IHttpContextAccessor httpContextAccessor) : ITenantContext
+public sealed class HttpTenantContext : ITenantContext
 {
-    private ClaimsPrincipal? Principal => httpContextAccessor.HttpContext?.User;
+    private TenantId? tenantId;
 
-    public bool IsAvailable => TenantId is not null;
+    public bool IsAvailable => tenantId is not null;
 
-    public TenantId? TenantId
+    public TenantId? TenantId => tenantId;
+
+    public void Initialize(TenantId validatedTenantId)
     {
-        get
+        if (tenantId is not null && tenantId != validatedTenantId)
         {
-            if (Principal?.Identity?.IsAuthenticated != true)
-            {
-                return null;
-            }
-
-            string? value = Principal.FindFirstValue(TrustedClaimTypes.TenantId);
-            return string.IsNullOrWhiteSpace(value) ? null : new TenantId(value);
+            throw new InvalidOperationException("Tenant context has already been initialized.");
         }
+
+        tenantId = validatedTenantId;
     }
 }

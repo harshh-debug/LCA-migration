@@ -18,7 +18,7 @@ public sealed class BearerSecurityDocumentTransformer : IOpenApiDocumentTransfor
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
-            Description = "JWT with sub, tenant_id, and explicit permission claims.",
+            Description = "Backend-issued JWT. Tenant tokens include tenant_id; platform tokens do not.",
         };
         return Task.CompletedTask;
     }

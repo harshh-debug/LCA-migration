@@ -1,9 +1,54 @@
 services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "${SQL_PORT:-1433}:1433"
+    volumes:
+      - lca-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
   api:
     build:
       context: .
       dockerfile: src/Lca.Api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__LcaDatabase: "Server=sqlserver,1433;Database=Lca;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      Authentication__Jwt__Issuer: ${JWT_ISSUER:-lca-api}
+      Authentication__Jwt__Audience: ${JWT_AUDIENCE:-lca-clients}
+      Authentication__Jwt__SigningKey: ${JWT_SIGNING_KEY:-local-development-signing-key-change-me}
+      InitialAccounts__PlatformEmail: ${PLATFORM_EMAIL:-}
+      InitialAccounts__PlatformPassword: ${PLATFORM_PASSWORD:-}
+      InitialAccounts__TenantEmail: ${TENANT_EMAIL:-}
+      InitialAccounts__TenantPassword: ${TENANT_PASSWORD:-}
+      AccountRecovery__PublicFrontendBaseUrl: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      AccountRecovery__DevelopmentMailDirectory: /tmp/lca-development-mail
+      AccountRecovery__ForgotRequestsPerIp: ${ACCOUNT_RECOVERY_FORGOT_REQUESTS_PER_IP:-5}
+      AccountRecovery__ForgotWindowMinutes: ${ACCOUNT_RECOVERY_FORGOT_WINDOW_MINUTES:-15}
+      AccountRecovery__TokenAttemptsPerIp: ${ACCOUNT_RECOVERY_TOKEN_ATTEMPTS_PER_IP:-10}
+      AccountRecovery__TokenAttemptWindowMinutes: ${ACCOUNT_RECOVERY_TOKEN_ATTEMPT_WINDOW_MINUTES:-15}
+      AccountRecovery__MinimumEmailIntervalMinutes: ${ACCOUNT_RECOVERY_MINIMUM_EMAIL_INTERVAL_MINUTES:-5}
+      AccountRecovery__MaximumEmailsPerHour: ${ACCOUNT_RECOVERY_MAXIMUM_EMAILS_PER_HOUR:-3}
+      AccountRecovery__InitialSetupTokenHours: ${ACCOUNT_RECOVERY_INITIAL_SETUP_TOKEN_HOURS:-24}
+      AccountRecovery__PasswordResetTokenMinutes: ${ACCOUNT_RECOVERY_PASSWORD_RESET_TOKEN_MINUTES:-60}
+    volumes:
+      - lca-development-mail:/tmp/lca-development-mail
+      - lca-data-protection-keys:/home/app/.aspnet/DataProtection-Keys
+    depends_on:
+      sqlserver:
+        condition: service_healthy
     ports:
       - "${API_PORT:-8080}:8080"
+
+volumes:
+  lca-sqlserver-data:
+  lca-development-mail:
+  lca-data-protection-keys:

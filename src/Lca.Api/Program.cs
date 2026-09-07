@@ -1,18 +1,25 @@
 using System.Reflection;
+using System.Globalization;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 using Lca.Api.Configuration;
 using Lca.Api.Contracts;
 using Lca.Api.Infrastructure;
 using Lca.Api.Security;
 using Lca.Core.Security;
+using Lca.Core.Tenancy;
 using Lca.Infrastructure;
+using Lca.Infrastructure.Configuration;
+using Lca.Infrastructure.Identity;
+using Lca.Infrastructure.Persistence;
 
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 
@@ -73,71 +80,156 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<SqlServerHealthCheck>("sqlserver", tags: ["ready"]);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
-builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+builder.Services.AddScoped<HttpTenantContext>();
+builder.Services.AddScoped<ITenantContext>(services => services.GetRequiredService<HttpTenantContext>());
 builder.Services.AddScoped<IAuthorizationHandler, TenantRequiredHandler>();
-builder.Services.AddLcaInfrastructure(builder.Configuration);
+builder.Services.AddLcaInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
+builder.Services.AddScoped<AccountScopeValidator>();
+builder.Services.AddScoped<JwtTokenIssuer>();
+builder.Services.AddScoped<ApplicationAuthenticationService>();
+builder.Services.AddScoped<InitialAccountSeeder>();
+builder.Services.AddOptions<InitialAccountsOptions>()
+    .Bind(builder.Configuration.GetSection(InitialAccountsOptions.SectionName));
+
+AccountRecoveryOptions recoveryOptions = builder.Configuration
+    .GetSection(AccountRecoveryOptions.SectionName)
+    .Get<AccountRecoveryOptions>() ?? new AccountRecoveryOptions();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("account-recovery-forgot", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = recoveryOptions.ForgotRequestsPerIp,
+            Window = TimeSpan.FromMinutes(recoveryOptions.ForgotWindowMinutes),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
+    options.AddPolicy("account-recovery-token", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = recoveryOptions.TokenAttemptsPerIp,
+            Window = TimeSpan.FromMinutes(recoveryOptions.TokenAttemptWindowMinutes),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
+});
 
 JwtOptions jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
-    .Validate(
-        options => builder.Environment.IsDevelopment() || options.IsConfigured,
-        "JWT issuer, audience, and a signing key of at least 32 characters are required outside Development.")
+    .Validate(options => options.IsConfigured,
+        "JWT issuer, audience, a signing key of at least 32 characters, and a valid token lifetime are required.")
     .ValidateOnStart();
 
-if (jwtOptions.IsConfigured)
-{
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            options.MapInboundClaims = false;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = jwtOptions.Issuer,
-                ValidateAudience = true,
-                ValidAudience = jwtOptions.Audience,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromMinutes(1),
-                NameClaimType = "sub",
-                RoleClaimType = "role",
-            };
-        });
-}
-else
-{
-    builder.Services.AddAuthentication(UnavailableAuthenticationHandler.SchemeName)
-        .AddScheme<AuthenticationSchemeOptions, UnavailableAuthenticationHandler>(
-            UnavailableAuthenticationHandler.SchemeName,
-            static _ => { });
-}
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+            NameClaimType = "sub",
+            RoleClaimType = "role",
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = ValidateAccountScopeAsync,
+        };
+    });
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(Policies.TenantRequired, policy =>
+    .AddPolicy(Policies.TenantAccess, policy =>
     {
         policy.RequireAuthenticatedUser();
+        policy.RequireClaim("sub");
+        policy.RequireClaim(TrustedClaimTypes.AccountType, "tenant");
         policy.AddRequirements(new TenantRequiredRequirement());
     })
-    .AddPolicy(Policies.CatalogRead, policy => AddTenantPermission(policy, Permissions.CatalogRead))
-    .AddPolicy(Policies.ProductDraftCreate, policy => AddTenantPermission(policy, Permissions.ProductDraftCreate))
-    .AddPolicy(Policies.ApprovalQueueRead, policy => AddTenantPermission(policy, Permissions.ApprovalQueueRead))
-    .AddPolicy(Policies.ApprovalQueueApprove, policy => AddTenantPermission(policy, Permissions.ApprovalQueueApprove));
+    .AddPolicy(Policies.PlatformAdmin, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("sub");
+        policy.RequireClaim(TrustedClaimTypes.AccountType, "platform");
+        policy.RequireRole(PlatformRoles.PlatformAdmin);
+    });
 
-static void AddTenantPermission(AuthorizationPolicyBuilder policy, string permission)
+static async Task ValidateAccountScopeAsync(TokenValidatedContext tokenContext)
 {
-    policy.RequireAuthenticatedUser();
-    policy.RequireClaim("sub");
-    policy.AddRequirements(new TenantRequiredRequirement());
-    policy.RequireClaim(TrustedClaimTypes.Permission, permission);
+    ClaimsPrincipal principal = tokenContext.Principal!;
+    string? userId = principal.FindFirstValue("sub");
+    string? accountType = principal.FindFirstValue(TrustedClaimTypes.AccountType);
+    if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(accountType))
+    {
+        tokenContext.Fail("The token account scope is invalid.");
+        return;
+    }
+
+    UserManager<ApplicationUser> userManager = tokenContext.HttpContext.RequestServices
+        .GetRequiredService<UserManager<ApplicationUser>>();
+    AccountScopeValidator validator = tokenContext.HttpContext.RequestServices
+        .GetRequiredService<AccountScopeValidator>();
+    ApplicationUser? user = await userManager.FindByIdAsync(userId);
+    string? tokenSecurityStamp = principal.FindFirstValue(TrustedClaimTypes.SecurityStamp);
+    if (user is null
+        || string.IsNullOrWhiteSpace(tokenSecurityStamp)
+        || !string.Equals(tokenSecurityStamp, user.SecurityStamp, StringComparison.Ordinal))
+    {
+        tokenContext.Fail("The token user is invalid.");
+        return;
+    }
+
+    string? tenantClaim = principal.FindFirstValue(TrustedClaimTypes.TenantId);
+    if (string.Equals(accountType, "platform", StringComparison.Ordinal))
+    {
+        if (tenantClaim is not null
+            || !await validator.IsValidPlatformAccountAsync(user, tokenContext.HttpContext.RequestAborted))
+        {
+            tokenContext.Fail("The platform account scope is invalid.");
+        }
+
+        return;
+    }
+
+    if (!string.Equals(accountType, "tenant", StringComparison.Ordinal)
+        || !long.TryParse(tenantClaim, NumberStyles.None, CultureInfo.InvariantCulture, out long claimedTenantId))
+    {
+        tokenContext.Fail("The tenant account scope is invalid.");
+        return;
+    }
+
+    long? resolvedTenantId = await validator.ResolveTenantAsync(user, tokenContext.HttpContext.RequestAborted);
+    if (resolvedTenantId != claimedTenantId)
+    {
+        tokenContext.Fail("The tenant membership is invalid.");
+        return;
+    }
+
+    tokenContext.HttpContext.RequestServices
+        .GetRequiredService<HttpTenantContext>()
+        .Initialize(new TenantId(claimedTenantId));
 }
 
 WebApplication app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<InitialAccountSeeder>().SeedAsync();
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
@@ -147,6 +239,7 @@ app.UseStatusCodePages(async statusContext =>
         .ExecuteAsync(statusContext.HttpContext);
 });
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
@@ -189,7 +282,7 @@ if (app.Environment.IsEnvironment("Testing"))
 {
     app.MapGet("/api/v1/test/tenant", (ITenantContext tenantContext) =>
             TypedResults.Ok(new { tenantId = tenantContext.TenantId?.Value }))
-        .RequireAuthorization(Policies.TenantRequired);
+        .RequireAuthorization(Policies.TenantAccess);
 }
 
 app.Run();

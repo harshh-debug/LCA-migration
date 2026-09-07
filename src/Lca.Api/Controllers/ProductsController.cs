@@ -1,104 +1,89 @@
 using Lca.Api.Contracts;
 using Lca.Core.Catalog;
-using Lca.Core.Governance;
 using Lca.Core.Security;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Lca.Api.Controllers;
 
-[ApiController]
-[Route("api/v1/products")]
-public sealed class ProductsController(
-    ICatalogService catalogService,
-    ITenantContext tenantContext,
-    ICurrentUser currentUser) : ControllerBase
+[ApiController, Route("api/v1/products"), Authorize(Policy = Policies.TenantAccess)]
+public sealed class ProductsController(ICatalogService catalogService) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Policies.CatalogRead)]
     [ProducesResponseType<PagedResponse<ProductResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<PagedResponse<ProductResponse>>> GetProducts(
-        [FromQuery] ProductSearchRequest request,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResponse<ProductResponse>>> GetProducts([FromQuery] ProductSearchRequest request, CancellationToken cancellationToken)
     {
-        if (request.IncludeDrafts
-            && !currentUser.Permissions.Contains(Permissions.ApprovalQueueRead, StringComparer.Ordinal))
-        {
-            return Forbid();
-        }
-
-        string tenantId = tenantContext.TenantId!.Value.Value;
-        PagedResult<Product> products = await catalogService.SearchProductsAsync(
-            new ProductSearch(tenantId, request.Search, request.CategoryId, request.IncludeDrafts, request.Page, request.PageSize),
-            cancellationToken);
-        IReadOnlyCollection<Category> categories = await catalogService.GetCategoriesAsync(tenantId, cancellationToken);
-        Dictionary<decimal, Category> categoriesById = categories.ToDictionary(category => category.Id);
-
-        ProductResponse[] response = products.Items.Select(product => MapProduct(product, categoriesById)).ToArray();
-        return Ok(new PagedResponse<ProductResponse>(response, products.Page, products.PageSize, products.TotalCount));
+        PagedResult<Product> result = await catalogService.SearchProductsAsync(
+            new(request.Search, request.CategoryId, request.Status, request.Page, request.PageSize), cancellationToken);
+        return Ok(new PagedResponse<ProductResponse>(result.Items.Select(Map).ToArray(), result.Page, result.PageSize, result.TotalCount));
     }
 
-    [HttpPost("draft")]
-    [Authorize(Policy = Policies.ProductDraftCreate)]
-    [ProducesResponseType<ProductDraftCreatedResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<ProductDraftCreatedResponse>> CreateDraft(
-        [FromBody] CreateProductDraftRequest request,
-        CancellationToken cancellationToken)
+    [HttpGet("{id:long}")]
+    [ProducesResponseType<ProductResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductResponse>> GetProduct(long id, CancellationToken cancellationToken)
     {
-        ApprovalQueueItem item = await catalogService.CreateProductDraftAsync(
-            new ProductDraft(
-                tenantContext.TenantId!.Value.Value,
-                request.Name.Trim(),
-                request.Description,
-                request.Specification,
-                request.CategoryId,
-                currentUser.UserId!),
-            cancellationToken);
-
-        ProductDraftCreatedResponse response = new(item.Id, item.EntityId, item.Status.ToString(), item.CreatedAt);
-        return Created($"/api/v1/approval-queue/{item.Id}", response);
+        Product? product = await catalogService.GetProductAsync(id, cancellationToken);
+        return product is null ? NotFound() : Ok(Map(product));
     }
 
-    private static ProductResponse MapProduct(Product product, Dictionary<decimal, Category> categories)
+    [HttpPost]
+    [ProducesResponseType<ProductResponse>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<ProductResponse>> CreateProduct(ProductWriteRequest request, CancellationToken cancellationToken)
     {
-        CategoryReferenceResponse? category = product.CategoryId.HasValue
-            && categories.TryGetValue(product.CategoryId.Value, out Category? match)
-                ? new CategoryReferenceResponse(match.Id, match.Name)
-                : null;
-        string?[] imageSlots =
-        [
-            product.Image1,
-            product.Image2,
-            product.Image3,
-            product.Image4,
-            product.Image5,
-            product.Image6,
-            product.Image7,
-            product.Image8,
-            product.Image9,
-        ];
-        string[] images = imageSlots
-            .Where(static image => !string.IsNullOrWhiteSpace(image))
-            .Select(static image => image!)
-            .ToArray();
-
-        return new ProductResponse(
-            product.ItemCode,
-            product.Name,
-            product.Description,
-            product.Specification,
-            category,
-            new ProductPriceResponse(product.RetailRate, product.WholesaleRate, product.DealerRate),
-            product.IsDisabled == true,
-            product.IsDraft,
-            product.CreatedSource,
-            images,
-            product.ThumbnailImage);
+        Product product = await catalogService.CreateProductAsync(ToModel(request), cancellationToken);
+        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, Map(product));
     }
+
+    [HttpPut("{id:long}")]
+    public async Task<ActionResult<ProductResponse>> UpdateProduct(long id, ProductWriteRequest request, CancellationToken cancellationToken)
+    {
+        Product? product = await catalogService.UpdateProductAsync(id, ToModel(request), cancellationToken);
+        return product is null ? NotFound() : Ok(Map(product));
+    }
+
+    [HttpPut("{id:long}/pricing")]
+    public async Task<ActionResult<ProductPricingResponse>> UpdatePricing(long id, PricingWriteRequest request, CancellationToken cancellationToken)
+    {
+        ProductPricing? pricing = await catalogService.UpdatePricingAsync(id, new(
+            request.PurchaseRate, request.DealerRate, request.WholesaleRate, request.RetailRate, request.OtherRate,
+            request.VatRate, request.AdditionalVatRate, request.CstRate, request.IgstRate, request.SgstRate, request.CgstRate), cancellationToken);
+        return pricing is null ? NotFound() : Ok(Map(pricing));
+    }
+
+    [HttpPut("{id:long}/inventory")]
+    public async Task<ActionResult<ProductInventoryResponse>> UpdateInventory(long id, InventoryWriteRequest request, CancellationToken cancellationToken)
+    {
+        ProductInventory? inventory = await catalogService.UpdateInventoryAsync(id, new(
+            request.Balance, request.CurrentStock, request.MaximumStock, request.MinimumStock, request.Godown1Stock, request.Godown2Stock), cancellationToken);
+        return inventory is null ? NotFound() : Ok(Map(inventory));
+    }
+
+    [HttpDelete("{id:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteProduct(long id, CancellationToken cancellationToken) =>
+        await catalogService.DeleteProductAsync(id, cancellationToken) ? NoContent() : NotFound();
+
+    private static ProductWriteModel ToModel(ProductWriteRequest value) => new(
+        value.ItemCode, value.Name, value.Unit, value.AlternateItemCode, value.GujaratiName, value.UnitKilograms,
+        value.Group1, value.Group2, value.ChapterNumber, value.HsnNumber, value.ItemType, value.Packing,
+        value.ManufacturerName, value.Location, value.AlternateLocation, value.WarrantyYears, value.WarrantyMonths,
+        value.Description, value.Remark, value.SalesmanCommission, value.CategoryId, value.IsDisabled);
+
+    internal static ProductResponse Map(Product value) => new(
+        value.Id, value.ItemCode, value.Name, value.Unit, value.AlternateItemCode, value.GujaratiName, value.UnitKilograms,
+        value.Group1, value.Group2, value.ChapterNumber, value.HsnNumber, value.ItemType, value.Packing,
+        value.ManufacturerName, value.Location, value.AlternateLocation, value.WarrantyYears, value.WarrantyMonths,
+        value.Description, value.Remark, value.SalesmanCommission,
+        value.Category is null ? null : new(value.Category.Id, value.Category.Name),
+        value.Pricing is null ? null : Map(value.Pricing), value.Inventory is null ? null : Map(value.Inventory),
+        value.IsDisabled, value.Media.OrderBy(media => media.SortOrder).Select(media => new ProductMediaResponse(media.Id, media.LegacyPath, media.SortOrder, media.IsThumbnail)).ToArray(),
+        value.CreatedAtUtc, value.UpdatedAtUtc);
+
+    private static ProductPricingResponse Map(ProductPricing value) => new(
+        value.PurchaseRate, value.DealerRate, value.WholesaleRate, value.RetailRate, value.OtherRate,
+        value.VatRate, value.AdditionalVatRate, value.CstRate, value.IgstRate, value.SgstRate, value.CgstRate);
+    private static ProductInventoryResponse Map(ProductInventory value) => new(value.Balance, value.CurrentStock, value.MaximumStock, value.MinimumStock, value.Godown1Stock, value.Godown2Stock);
 }

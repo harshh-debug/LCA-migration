@@ -1,10 +1,10 @@
 # Target Architecture
 
-> **Scope note:** This document describes complete-project target direction. Current implementation is limited to the Sprint 1 web frontend, ASP.NET Core backend, shared API, and database groundwork defined in [the documentation guide](buffer/README.md). AI and Android elements shown in the conceptual visuals are not current implementation scope.
+> **Scope note:** This document describes the complete-project target direction and identifies the current implementation boundary. The repository currently contains a .NET 10 modular monolith, one new shared-schema SQL Server database, ASP.NET Core Identity/JWT authentication, tenant-safe Catalog and Customer capabilities, a first Platform Owner administration slice, and a minimal Next.js administration UI. AI and Android elements shown in the conceptual visuals are not current implementation scope.
 
 ## Architectural style
 
-The recommended initial style is a **modular platform / modular monolith**, not a fleet of microservices. The current backend is one ASP.NET Core server with three project boundaries: `Lca.Api` for HTTP/hosting composition, `Lca.Core` for the implemented LCA application and business behavior, and `Lca.Infrastructure` for technical implementations. Sprint 1 currently has only security and tenancy code in Core; business modules are added when their legacy behavior is migrated.
+The recommended initial style is a **modular platform / modular monolith**, not a fleet of microservices. The current backend is one ASP.NET Core server with three project boundaries: `Lca.Api` for HTTP/hosting composition, `Lca.Core` for the implemented LCA application and business behavior, and `Lca.Infrastructure` for technical implementations. The current implementation includes Identity and tenancy, Product/Category/Pricing/Inventory, Customer/contacts, Tenant 1-only migration boundaries, and the first Platform Owner administration slice. Further business modules are added only after their legacy behavior is characterized and accepted.
 
 Logical module boundaries should be explicit from the start so that selected modules can later be extracted when justified.
 
@@ -71,18 +71,21 @@ Own business rules for Product, Pricing, Inventory, Commerce, CRM, RFQ, Payment,
 
 ### Infrastructure/integration layer
 
-Provides persistence, caches, search, event transport and provider adapters without leaking provider-specific concerns into domain logic.
+Provides persistence and provider adapters without leaking provider-specific concerns into domain logic. Redis, dedicated Search, and event infrastructure remain deferred until an approved capability requires them.
 
 ## Possible scale evolution
 
 These are future target proposals rather than PRD Sprint numbers. Only components required by an approved migration slice should be introduced.
 
-### Initial modular platform
+### Current modular platform
 
 - modular application
-- shared database
-- Redis
-- search
+- one new shared-schema SQL Server database
+- EF Core persistence with TenantId enforcement
+- ASP.NET Core Identity and backend-issued JWTs
+- explicit platform and tenant authorization boundaries
+
+Redis, dedicated Search, and event infrastructure are future options, not current runtime dependencies.
 
 ### Phase 2
 
@@ -117,19 +120,19 @@ The modular boundaries are introduced incrementally in this order:
 2. configuration foundation;
 3. authentication, authorization, and trusted tenant context;
 4. shared utilities required by an approved slice;
-5. Product API;
-6. Category API, with Product and Category due by the end of Sprint 2;
-7. Customer API;
+5. Product, Category, Pricing, and Inventory APIs (implemented current slice);
+6. Customer and contact APIs (implemented current slice);
+7. Platform Owner dashboard, Tenant lifecycle, Tenant-user provisioning, account recovery, and platform audit (implemented first platform slice);
 8. Sales / Order APIs;
 9. Quotation API;
 10. Logistics API;
 11. required Sales/report and CRM read endpoints.
 
-This is a delivery priority, not permission to skip legacy characterization or cutover gates. Product, price, stock, Customer, and Order facts remain owned by authoritative backend data. External AI systems may consume these APIs, but AI agents, orchestration, and AI-specific migration modules remain outside this repository's current implementation scope.
+This is a delivery priority, not permission to skip legacy characterization or cutover gates. Product, price, stock, and Customer facts are persisted in the new platform database for the implemented slices; the legacy database remains migration evidence/coexistence data and is not used as normal runtime persistence. Orders and later modules remain subject to their own characterization, migration, reconciliation, and cutover gates. External AI systems may consume approved APIs, but AI agents, orchestration, and AI-specific migration modules remain outside this repository's current implementation scope.
 
 ## Architecture diagrams
 
-The following images describe the complete-project target concept. They do not establish the legacy schema, current deployment topology, or Sprint 1 implementation scope.
+The following images describe the complete-project target concept. They do not establish the legacy schema, current deployment topology, or the status of an individual migrated slice. For current implementation status, use `.agents/codex/02-CURRENT-STATE.md`.
 
 ### Architecture principle
 
@@ -150,3 +153,5 @@ Legacy physical database facts must come from the [database documentation](datab
 - [Documentation guide and current Sprint 1 scope](buffer/README.md)
 - [Migration strategy](buffer/MIGRATION_STRATEGY.md)
 - [Complete-project PRD](LCA_2.5_Month_PRD.md)
+
+The linked PRD is a historical draft/reference document. It is not authoritative for current database, AI, Android, or delivery scope; the accepted Codex decision and current-state documents take precedence.

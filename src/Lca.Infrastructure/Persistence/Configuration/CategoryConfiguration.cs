@@ -1,5 +1,4 @@
 using Lca.Core.Catalog;
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,17 +8,20 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
 {
     public void Configure(EntityTypeBuilder<Category> builder)
     {
-        builder.ToTable("CategoryMastertbl", "dbo");
-        builder.HasKey(category => category.Id).HasName("PK_CategoryMastertbl");
-        builder.Property(category => category.Id)
-            .HasColumnName("CategoryID")
-            .HasColumnType("numeric(18,0)")
-            .ValueGeneratedOnAdd();
-        builder.Property(category => category.Name).HasColumnName("CategoryName").HasMaxLength(1000);
-        builder.Property(category => category.Icon).HasColumnName("CategoryIcon").HasColumnType("nvarchar(max)");
-        builder.Property(category => category.ParentCategoryId).HasColumnName("ParentCategoryID").HasColumnType("numeric(18,0)");
-        builder.Property(category => category.NotificationImage).HasColumnType("nvarchar(max)");
-
-        // The exported self-FK is anomalous; do not infer a parent navigation from ParentCategoryID.
+        builder.ToTable("Categories", "dbo");
+        builder.HasKey(value => value.Id);
+        builder.Property(value => value.Id).ValueGeneratedOnAdd();
+        builder.Property(value => value.Name).HasMaxLength(500).IsRequired();
+        builder.Property(value => value.LegacyIconPath).HasMaxLength(1000);
+        builder.Property(value => value.LegacyNotificationImagePath).HasMaxLength(1000);
+        builder.HasAlternateKey(value => new { value.TenantId, value.Id });
+        builder.HasIndex(value => new { value.TenantId, value.ParentCategoryId });
+        builder.HasIndex(value => new { value.TenantId, value.Name });
+        builder.HasOne<Lca.Core.Tenancy.Tenant>().WithMany()
+            .HasForeignKey(value => value.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(value => value.ParentCategory).WithMany(value => value.Children)
+            .HasForeignKey(value => new { value.TenantId, value.ParentCategoryId })
+            .HasPrincipalKey(value => new { value.TenantId, value.Id })
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

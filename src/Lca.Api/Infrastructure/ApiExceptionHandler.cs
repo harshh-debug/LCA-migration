@@ -1,6 +1,7 @@
-using Lca.Infrastructure.Catalog;
-using Lca.Infrastructure.Governance;
 using Lca.Infrastructure.Persistence;
+using Lca.Core.Catalog;
+using Lca.Core.Customers;
+using Lca.Core.Platform;
 
 using Microsoft.AspNetCore.Diagnostics;
 
@@ -15,9 +16,10 @@ public sealed partial class ApiExceptionHandler(ILogger<ApiExceptionHandler> log
     {
         int statusCode = exception switch
         {
-            InvalidProductDraftException => StatusCodes.Status400BadRequest,
-            ApprovalConflictException => StatusCodes.Status409Conflict,
-            TenantDatabaseNotConfiguredException => StatusCodes.Status503ServiceUnavailable,
+            TenantIsolationException => StatusCodes.Status403Forbidden,
+            CatalogConflictException => StatusCodes.Status409Conflict,
+            CustomerConflictException => StatusCodes.Status409Conflict,
+            PlatformAdministrationConflictException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError,
         };
 
@@ -32,9 +34,8 @@ public sealed partial class ApiExceptionHandler(ILogger<ApiExceptionHandler> log
                 statusCode: statusCode,
                 title: statusCode switch
                 {
-                    StatusCodes.Status400BadRequest => "Invalid product draft",
-                    StatusCodes.Status409Conflict => "Approval conflict",
-                    _ => "Tenant database unavailable",
+                    StatusCodes.Status409Conflict => "Operation conflicts with existing data",
+                    _ => "Tenant access denied",
                 },
                 detail: exception.Message)
             .ExecuteAsync(httpContext);

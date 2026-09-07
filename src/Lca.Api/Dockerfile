@@ -16,6 +16,8 @@ ENV ASPNETCORE_URLS=http://+:8080 \
     DOTNET_EnableDiagnostics=0
 
 COPY --from=build /app/publish ./
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys /tmp/lca-development-mail \
+    && chown -R "$APP_UID:$APP_UID" /home/app/.aspnet /tmp/lca-development-mail
 USER $APP_UID
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 CMD ["dotnet", "Lca.Api.dll", "--health-check"]

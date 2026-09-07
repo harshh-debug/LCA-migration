@@ -3,5 +3,7 @@
     <Project Path="src/Lca.Api/Lca.Api.csproj" />
     <Project Path="src/Lca.Core/Lca.Core.csproj" />
     <Project Path="src/Lca.Infrastructure/Lca.Infrastructure.csproj" />
+    <Project Path="src/Lca.LegacyCatalogImport/Lca.LegacyCatalogImport.csproj" />
+    <Project Path="src/Lca.LegacyCustomerImport/Lca.LegacyCustomerImport.csproj" />
   </Folder>
 </Solution>

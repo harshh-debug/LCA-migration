@@ -14,7 +14,8 @@ public sealed class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : 
         ? Principal?.FindFirstValue(ClaimTypes.NameIdentifier) ?? Principal?.FindFirstValue("sub")
         : null;
 
-    public IReadOnlyCollection<string> Permissions => IsAuthenticated
-        ? Principal?.FindAll(TrustedClaimTypes.Permission).Select(static claim => claim.Value).ToArray() ?? []
-        : [];
+    public AccountType? AccountType => IsAuthenticated
+        && Enum.TryParse(Principal?.FindFirstValue(TrustedClaimTypes.AccountType), true, out AccountType accountType)
+            ? accountType
+            : null;
 }
